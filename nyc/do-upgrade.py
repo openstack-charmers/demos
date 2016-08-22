@@ -33,6 +33,9 @@ class Juju(dict):
         else:
             key = 'applications'
 
+        if name not in self[key]:
+            return None
+
         svc = Service(self[key][name])
         svc['name'] = name
         return svc
@@ -294,6 +297,14 @@ def is_rollable(service):
         # upgrade. Go for the big bang.
         return False
 
+    if service.name.lower().find('ceph') > 0:
+        # The ceph charms incorporate their own upgrade process by
+        # simply setting the source so let it do the "big-bang" style
+        # upgrade.
+        # TODO(wolsen) this should check the charm in juju 2 rather
+        # than rely on the service/application name.
+        return False
+
     if not service.set_config('action-managed-upgrade', True):
         log.warning('Failed to enable action-managed-upgrade mode.')
         return False
@@ -388,13 +399,24 @@ def main():
                         required=False, metavar='origin')
     parser.add_argument('-p', '--pause', type=bool, default=False,
                         required=False, metavar='pause')
+    parser.add_argument('app', metavar='app', type=str, nargs='?',
+                        help='target app to upgrade')
     args = parser.parse_args() 
 
     env = Juju.current()
 
-    for service in SERVICES:
-        log.info('Upgrading service %s', service)
+    if args.app:
+        to_upgrade = [args.app]
+    else:
+        to_upgrade = SERVICES
+
+    for service in to_upgrade:
+        log.info('Upgrading %s', service)
         svc = env.get_service(service)
+
+        if not svc:
+            log.error('Unable to find application %s', service)
+            continue
 
         if is_rollable(svc):
             perform_rolling_upgrade(svc)

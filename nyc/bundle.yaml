@@ -155,6 +155,7 @@ services:
       haproxy-client-timeout: 90000
       haproxy-queue-timeout: 9000
       haproxy-connect-timeout: 9000
+      action-managed-upgrade: True
     annotations: 
       "gui-x": "1517.687255859375"
       "gui-y": "667.184648705796"
@@ -185,6 +186,7 @@ services:
       haproxy-client-timeout: 90000
       haproxy-queue-timeout: 9000
       haproxy-connect-timeout: 9000
+      action-managed-upgrade: True
 
     annotations: 
       "gui-x": "1805.5"
@@ -213,6 +215,7 @@ services:
       enable-resize: True
       migration-auth-type: ssh
       enable-resize: True
+      action-managed-upgrade: True
     to:
       - 3
       - 4
@@ -229,6 +232,7 @@ services:
       haproxy-client-timeout: 90000
       haproxy-queue-timeout: 9000
       haproxy-connect-timeout: 9000
+      action-managed-upgrade: True
 
     annotations: 
       "gui-x": "593"
@@ -256,6 +260,7 @@ services:
       openstack-origin: cloud:trusty-liberty
       ext-port: eth1
       #instance-mtu: 1300
+      action-managed-upgrade: True
     annotations: 
       "gui-x": "1265.5"
       "gui-y": "-1.29491924311219"
@@ -274,6 +279,7 @@ services:
       haproxy-client-timeout: 90000
       haproxy-queue-timeout: 9000
       haproxy-connect-timeout: 9000
+      action-managed-upgrade: True
 
     annotations: 
       "gui-x": "213"
@@ -300,6 +306,7 @@ services:
       haproxy-client-timeout: 90000
       haproxy-queue-timeout: 9000
       haproxy-connect-timeout: 9000
+      action-managed-upgrade: True
 
     annotations: 
       "gui-x": "315.5"
@@ -328,6 +335,7 @@ services:
       haproxy-connect-timeout: 9000
       neutron-security-groups: True
       flat-network-providers: physnet1
+      action-managed-upgrade: True
     to:
       - lxd:0
       - lxd:1
