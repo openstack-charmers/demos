@@ -1,0 +1,6 @@
+# This yaml file is used to configure the Juju model that the 
+# observable-kubernetes bundle will be deployed into.
+
+http-proxy: http://squid.internal:3128
+https-proxy: https://squid.internal:3128
+
