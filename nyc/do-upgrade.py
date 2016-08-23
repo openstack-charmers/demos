@@ -80,25 +80,12 @@ class Juju(dict):
         try:
             if JUJU_VERSION == 1:
                 cmd = ['juju', 'action', 'defined', service]
-                output = subprocess.check_output(cmd)
-                actions = yaml.safe_load(output)
-                return actions.keys()
             else:
-                # it appears that the yaml output for juju2 actions listing
-                # is broken (everything is in single string)
-                cmd = ['juju', 'actions', service]
-                output = subprocess.check_output(cmd)
+                cmd = ['juju', 'actions', '--schema', service]
 
-                # The output is in table format. Fortunately, the actions are
-                # always in the first column so this code will return the
-                # word in any row where the row is not empty and the row
-                # does not appear to be a table header. If the description
-                # for the action is mildly verbose, then this will include
-                # more actions than desirable, however this script just checks
-                # that an action is defined so this should be 'good enough'
-                actions = [row.split(None, 1)[0] for row in output.split('\n')
-                           if row and not row.startswith('ACTION')]
-                return actions
+            output = subprocess.check_output(cmd)
+            actions = yaml.safe_load(output)
+            return actions.keys()
         except subprocess.CalledProcessError as e:
             log.error(e)
             raise e
@@ -207,6 +194,16 @@ class Unit(dict):
         except subprocess.CalledProcessError as e:
             log.error(e)
             raise e
+
+    def get_hacluster_subordinate_unit(self):
+        if not self['subordinates']:
+            return None
+        for k in self['subordinates']:
+            if k.find('hacluster') >= 0:
+                # TODO(wolsen) hack!
+                return Unit({'name': k})
+
+        return None
 
     def pause(self):
         log.info(' Pausing service on unit: %s' % self.name)
@@ -356,6 +353,11 @@ def perform_rolling_upgrade(service):
 
     for unit in order_units(service, service.units()):
         log.info('Upgrading unit: %s' % unit.name)
+        hacluster_unit = unit.get_hacluster_subordinate_unit()
+
+        if args.pause and hacluster_unit:
+            hacluster_unit.pause()
+
         if args.pause and 'pause' in avail_actions:
             unit.pause()
 
@@ -364,6 +366,9 @@ def perform_rolling_upgrade(service):
 
         if args.pause and 'resume' in avail_actions:
             unit.resume()
+
+        if args.pause and hacluster_unit:
+            hacluster_unit.resume()
 
         log.info(' Unit %s has finished the upgrade.' % unit.name)
 
@@ -397,7 +402,7 @@ def main():
     parser = argparse.ArgumentParser(description='Upgrades the currently running cloud.')
     parser.add_argument('-o', '--origin', type=str, default='cloud:trusty-mitaka',
                         required=False, metavar='origin')
-    parser.add_argument('-p', '--pause', type=bool, default=False,
+    parser.add_argument('-p', '--pause', type=bool, default=True,
                         required=False, metavar='pause')
     parser.add_argument('app', metavar='app', type=str, nargs='?',
                         help='target app to upgrade')
