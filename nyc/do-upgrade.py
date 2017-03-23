@@ -424,7 +424,7 @@ def main():
                         help='Prompt before upgrading nova-compute units to '
                              'allow the compute host to be evacuated prior to '
                              'upgrading the unit.')
-    parser.add_argument('app', metavar='app', type=str, nargs='+',
+    parser.add_argument('app', metavar='app', type=str, nargs='*',
                         help='target app to upgrade')
     args = parser.parse_args()
 
