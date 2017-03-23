@@ -1,10 +1,12 @@
 #!/usr/bin/env python
 #
-# This script is used to upgrade the OpenStack cluster using Juju.
+# Upgrade the OpenStack with Clustering Status Control.
+# Usage: $ ./do-upgrade.py -o cloud:xenial-newton [application-name]
 #
 
 import argparse
 import logging
+import six
 import subprocess
 import time
 import yaml
@@ -47,7 +49,7 @@ class Juju(dict):
             if JUJU_VERSION == 1:
                 cmd = ['juju', 'set', service, setting]
             else:
-                cmd = ['juju', 'set-config', service, setting]
+                cmd = ['juju', 'config', service, setting]
             subprocess.check_output(cmd)
             return True
         except subprocess.CalledProcessError as e:
@@ -68,7 +70,7 @@ class Juju(dict):
                 cmd = ['juju', 'action', 'do', unit_name, action]
             else:
                 cmd = ['juju', 'run-action', unit_name, action]
-                
+
             output = subprocess.check_output(cmd)
             return output.split(':')[1].strip()
         except subprocess.CalledProcessError as e:
@@ -81,7 +83,8 @@ class Juju(dict):
             if JUJU_VERSION == 1:
                 cmd = ['juju', 'action', 'defined', service]
             else:
-                cmd = ['juju', 'actions', '--schema', service]
+                cmd = ['juju', 'actions', '--schema', '--format=json',
+                       service]
 
             output = subprocess.check_output(cmd)
             actions = yaml.safe_load(output)
@@ -93,7 +96,7 @@ class Juju(dict):
     @classmethod
     def is_action_done(cls, act_id):
         """Determines if the action by the action id is currently done or not.
-    
+
         :param act_id: the action id to query the juju service on the status.
         :return boolean: True if the actino is done, False otherwise.
         """
@@ -175,7 +178,7 @@ class Unit(dict):
 
     @property
     def agent_status(self):
-        if 'agent-status' in self: 
+        if 'agent-status' in self:
             return Status(self['agent-status'])
         else:
             return None
@@ -245,8 +248,8 @@ SERVICES = [
     'glance',
 
     # Upgrade nova
-    'nova-cloud-controller', 
-    'nova-compute', 
+    'nova-cloud-controller',
+    'nova-compute',
 
     # Neutron upgrades
     'neutron-api',
@@ -256,13 +259,8 @@ SERVICES = [
     # Note: just upgrade cinder service.
     'cinder',
 
-    # Upgrade the ceph cluster
-    'ceph-mon',
-    'ceph-osd',
-    'ceph-radosgw',
-
-    # Upgrade heat
-    'heat',
+    # Upgrade dashboard
+    'openstack-dashboard',
 ]
 
 # Not all charms use the openstack-origin. The openstack specific
@@ -355,6 +353,17 @@ def perform_rolling_upgrade(service):
         log.info('Upgrading unit: %s' % unit.name)
         hacluster_unit = unit.get_hacluster_subordinate_unit()
 
+        # TODO(wolsen) This is a temporary work around to allow the user
+        # to evacuate a compute node during the upgrade procedure if
+        # desired. This has the effect of pausing the upgrade script to
+        # allow the user to manually intervene with the underlying cloud.
+        # In the future, it would be nice to provide a mechanism to allow
+        # the script to evacuate the node automatically (if desired).
+        if args.evacuate and service.name == 'nova-compute':
+            six.moves.input('Preparing to upgrade %s. Perform any additional '
+                            'admin actions desired. Press ENTER to proceed.' %
+                            unit.name)
+
         if args.pause and hacluster_unit:
             hacluster_unit.pause()
 
@@ -399,19 +408,30 @@ def perform_bigbang_upgrade(service):
 
 def main():
     global args
-    parser = argparse.ArgumentParser(description='Upgrades the currently running cloud.')
-    parser.add_argument('-o', '--origin', type=str, default='cloud:trusty-mitaka',
-                        required=False, metavar='origin')
-    parser.add_argument('-p', '--pause', type=bool, default=True,
-                        required=False, metavar='pause')
-    parser.add_argument('app', metavar='app', type=str, nargs='?',
+    parser = argparse.ArgumentParser(
+        description='Upgrades the currently running cloud.')
+    parser.add_argument('-o', '--origin', type=str,
+                        default='cloud:trusty-mitaka',
+                        required=False, metavar='origin',
+                        help='The Ubuntu Cloud Archive pocket to upgrade the '
+                             'OpenStack cloud to. This is specified in the '
+                             'form of cloud:<release_name>-<openstack_name>. '
+                             'Examples include cloud:trusty-mitaka, '
+                             'cloud:xenial-newton, etc.')
+    parser.add_argument('-p', '--pause', action='store_true',
+                        help='Pause units prior to upgrading')
+    parser.add_argument('-e', '--evacuate', action='store_true',
+                        help='Prompt before upgrading nova-compute units to '
+                             'allow the compute host to be evacuated prior to '
+                             'upgrading the unit.')
+    parser.add_argument('app', metavar='app', type=str, nargs='+',
                         help='target app to upgrade')
-    args = parser.parse_args() 
+    args = parser.parse_args()
 
     env = Juju.current()
 
     if args.app:
-        to_upgrade = [args.app]
+        to_upgrade = args.app
     else:
         to_upgrade = SERVICES
 
