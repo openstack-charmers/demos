@@ -1,0 +1,80 @@
+# This is an example Netplan configuration for the SmartNIC DPU itself.
+network:
+    bonds:
+        bond0:
+            interfaces:
+            - p0
+            - p1
+            macaddress: b8:ce:f6:71:bf:42
+            mtu: 9000
+            parameters:
+                down-delay: 0
+                lacp-rate: fast
+                mii-monitor-interval: 100
+                mode: 802.3ad
+                transmit-hash-policy: layer3+4
+                up-delay: 0
+    bridges:
+        br-bond0:
+            addresses:
+            - 192.0.2.113/24
+            gateway4: 192.0.2.1
+            interfaces:
+            - bond0
+            - pf0hpf
+            macaddress: b8:ce:f6:71:bf:42
+            mtu: 9000
+            nameservers:
+                addresses:
+                - 192.0.2.10
+                search:
+                - maas
+            openvswitch: {}
+            parameters:
+                forward-delay: 15
+                stp: false
+    ethernets:
+        oob_net0:
+            addresses:
+            - 198.51.100.113/24
+            routes:
+            - metric: 1024
+              to: 0.0.0.0/0
+              via: 198.51.100.1
+        tmfifo_net0:
+            addresses:
+            - 192.168.100.2/30
+            dhcp4: false
+            nameservers:
+                addresses:
+                - 192.168.100.1
+            routes:
+            -   metric: 1025
+                to: 0.0.0.0/0
+                via: 192.168.100.1
+        p0:
+            match:
+                macaddress: b8:ce:f6:71:bf:42
+                driver: mlx5_core
+            mtu: 9000
+            set-name: p0
+        p1:
+            match:
+                macaddress: b8:ce:f6:71:bf:43
+                driver: mlx5_core
+            mtu: 9000
+            set-name: p1
+        pf0hpf:
+            match:
+                macaddress: da:89:27:2d:e3:4c
+                driver: mlx5_core
+            mtu: 9000
+            set-name: pf0hpf
+    version: 2
+    vlans:
+        br-bond0.2925:
+            addresses:
+            - 203.0.113.113/24
+            id: 2925
+            link: br-bond0
+            mtu: 9000
